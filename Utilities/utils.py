@@ -38,6 +38,27 @@ def derive_MAFLD(df):
 
     return df
 
+# Derive CKD status
+def derive_CKD(df):
+    # Initialize CKD field as -1
+    df['CKD'] = -1
+
+    # Condition 1: egfrn >= 60 and Alb_Cre_ratio < 3
+    df.loc[(df['Estimated_GFR_x'] >= 60) & (df['Alb_Cre_ratio'] < 3), 'CKD'] = 1
+
+    # Condition 2: egfrn >= 60 and 3 <= Alb_Cre_ratio <= 30 or 45 <= egfrn < 60 and Alb_Cre_ratio < 3
+    df.loc[((df['Estimated_GFR_x'] >= 60) & (df['Alb_Cre_ratio'].between(3, 30))) |
+           ((df['Estimated_GFR_x'].between(45, 60)) & (df['Alb_Cre_ratio'] < 3)), 'CKD'] = 2
+
+    # Condition 3: egfrn >= 60 and Alb_Cre_ratio > 30 or egfrn < 60 and Alb_Cre_ratio >= 0
+    df.loc[((df['Estimated_GFR_x'] >= 60) & (df['Alb_Cre_ratio'] > 30)) |
+           ((df['Estimated_GFR_x'] < 60) & (df['Alb_Cre_ratio'] >= 0)), 'CKD'] = 3
+
+    # Set CKD as 0 for cases where egfrn and Alb_Cre_ratio are not empty and CKD is still -1
+    df.loc[(df['Estimated_GFR_x'].notnull()) & (df['Alb_Cre_ratio'].notnull()) & (df['CKD'] == -1), 'CKD'] = 0
+
+    return df
+
 # We are now deriving target variables as MAFLD_0, MAFLD_Obesity, MAFLD_Diebetes, MAFLD_MD
 def derive_MAFLD_with_multi_label(df):
     # Condition for non-case: derive MAFLD_0, if MAFLD is 0, then MAFLD_0 is 1, otherwise 0
@@ -61,6 +82,16 @@ def derive_MAFLD_with_multi_label(df):
 
     return df
 
+# This function will extract the numeric values
+import re
+def extract_numeric_value(value):
+    pattern = r'\d+(\.\d+)?'  
+    match = re.search(pattern, str(value))
+    if match:
+        return float(match.group())
+    else:
+        return None
+    
 # Sliding window function for multi_label
 def sliding_window_multi_label_data(df, input_window_size, target_window_size):
     transformed_data = []
